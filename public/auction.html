@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Auction Page</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; margin: 0; padding: 40px; }
+    h1 { margin-bottom: 20px; }
+    .bid-box { background: white; padding: 20px; border-radius: 10px; display: inline-block; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    .bid-item { margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 5px; background: #fafafa; }
+    input[type="number"] { padding: 10px; width: 200px; font-size: 16px; border-radius: 5px; border: 1px solid #ccc; }
+    button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; margin: 10px; }
+    .btn-bid { background-color: #4CAF50; color: white; }
+    .btn-back { background-color: #007BFF; color: white; }
+  </style>
+</head>
+<body>
+  <h1>Auction - Place Your Bid</h1>
+  <h2>Lowest Bid: <span id="lowestBid">Loading...</span></h2>
+
+  <div class="bid-box">
+    <input type="number" id="bidAmount" placeholder="Enter your bid (₹)" min="1" />
+    <br />
+    <button class="btn-bid" onclick="placeBid()">Place Bid</button>
+    <button class="btn-back" onclick="goBack()">Back to Dashboard</button>
+
+    <h3>All Bids:</h3>
+    <div id="bidList"></div>
+  </div>
+
+  <script>
+    async function fetchBids() {
+      const res = await fetch('/get-bids');
+      const data = await res.json();
+
+      const list = data.bids.map(b => `
+        <div class="bid-item">
+          ₹${b.amount} by <strong>${b.username}</strong><br>
+          <small>${new Date(b.createdAt).toLocaleString()}</small>
+        </div>
+      `).join('');
+      document.getElementById('bidList').innerHTML = list;
+
+      const lowest = Math.min(...data.bids.map(b => b.amount), Infinity);
+      document.getElementById('lowestBid').innerText = isFinite(lowest) ? `₹${lowest}` : 'No bids yet';
+    }
+
+    async function placeBid() {
+      const amount = document.getElementById('bidAmount').value;
+      const username = prompt('Enter your name:');
+      if (!amount || !username) return alert('Enter both name and bid amount!');
+
+      const res = await fetch('/place-bid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, amount: parseFloat(amount) })
+      });
+
+      const data = await res.json();
+      alert(data.message);
+      fetchBids();
+    }
+
+    function goBack() {
+      window.location.href = '/dashboard.html';
+    }
+
+    setInterval(fetchBids, 5000);
+    fetchBids();
+  </script>
+</body>
+</html>

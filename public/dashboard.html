@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      display: flex;
+    }
+    .sidebar {
+      width: 250px;
+      background-color: #111;
+      color: white;
+      height: 100vh;
+      position: fixed;
+      left: -250px;
+      transition: left 0.3s ease;
+      padding-top: 60px;
+    }
+    .sidebar.show {
+      left: 0;
+    }
+    .sidebar h3 {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .sidebar a {
+      display: block;
+      padding: 15px 25px;
+      color: white;
+      text-decoration: none;
+    }
+    .sidebar a:hover {
+      background-color: #575757;
+    }
+    .logout {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      text-align: center;
+    }
+    .menu-btn {
+      font-size: 26px;
+      cursor: pointer;
+      position: absolute;
+      top: 15px;
+      left: 15px;
+    }
+    .content {
+      margin-left: 0;
+      margin-top: 60px;
+      padding: 20px;
+      flex: 1;
+      transition: margin-left 0.3s ease;
+    }
+    .sidebar.show + .content {
+      margin-left: 250px;
+    }
+    .card {
+      background-color: #f8f8f8;
+      padding: 30px;
+      max-width: 400px;
+      margin: auto;
+      border-radius: 10px;
+    }
+    input, textarea {
+      width: 100%;
+      margin: 10px 0;
+      padding: 10px;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      cursor: pointer;
+      background-color: #28a745;
+      color: white;
+      border: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="menu-btn" onclick="toggleSidebar()">
+  <i class="fas fa-bars"></i>
+</div>
+
+<div class="sidebar" id="sidebar">
+  <h3 id="welcomeUser">Welcome!</h3>
+  <a href="#">Dashboard</a>
+  <a href="#">Earnings</a>
+  <a href="#">Billings</a>
+  <a href="#">Profile</a>
+  <div class="logout">
+    <a href="/logout">Logout</a>
+  </div>
+</div>
+
+<div class="content">
+  <div class="card">
+    <h2>Current Task</h2>
+    <form id="taskForm" enctype="multipart/form-data">
+      <input type="file" name="file" required />
+      <textarea name="description" placeholder="Task description..." required></textarea>
+      <label>Accepted Date:</label>
+      <input type="date" name="acceptedDate" required />
+      <label>Due Date:</label>
+      <input type="date" name="dueDate" required />
+      <button type="submit">Save Task</button>
+    </form>
+    <button onclick="location.href='/auction.html'">Go to Auction</button>
+  </div>
+</div>
+
+<script>
+  function toggleSidebar() {
+    document.getElementById("sidebar").classList.toggle("show");
+  }
+
+  // Display user's name
+  fetch('/get-user')
+    .then(res => res.json())
+    .then(data => {
+      document.getElementById('welcomeUser').innerText = `Welcome ${data.name || ''}!`;
+    });
+
+  // Task submission logic
+  document.getElementById("taskForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+
+    const res = await fetch("/task", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (res.ok) {
+      alert("Task saved successfully!");
+      e.target.reset();
+    } else {
+      alert("Failed to save task.");
+    }
+  });
+</script>
+
+</body>
+</html>

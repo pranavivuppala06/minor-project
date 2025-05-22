@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Online Auction - Home</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      background: #f0f0f0;
+      padding: 50px;
+    }
+    .container {
+      background: white;
+      border-radius: 12px;
+      padding: 40px;
+      display: inline-block;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    .btn {
+      display: block;
+      margin: 15px auto;
+      padding: 12px 25px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 260px;
+      transition: background 0.3s;
+    }
+    .btn-primary { background-color: #4CAF50; color: white; }
+    .btn-primary:hover { background-color: #45a049; }
+    .btn-secondary { background-color: #007BFF; color: white; }
+    .btn-secondary:hover { background-color: #0069d9; }
+    .btn-apple { background-color: #000; color: white; }
+    .btn-apple:hover { background-color: #333; }
+    .btn-google { background-color: #DB4437; color: white; }
+    .btn-google:hover { background-color: #c1351d; }
+    .btn-microsoft { background-color: #2F2F2F; color: white; }
+    .btn-microsoft:hover { background-color: #1d1d1d; }
+    h1 { margin-bottom: 25px; }
+    p { margin: 20px 0; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <img src="https://img.icons8.com/ios/100/user--v1.png" width="80" alt="User Icon" />
+    <h1>Welcome to Online Auction</h1>
+    
+    <button class="btn btn-primary" onclick="window.location.href='/register.html'">REGISTER</button>
+    <button class="btn btn-secondary" onclick="window.location.href='/login.html'">LOGIN</button>
+  </div>
+</body>
+</html>

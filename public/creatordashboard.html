@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Creator Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #333;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+      position: relative;
+    }
+    #logoutBtn {
+      position: absolute;
+      right: 20px;
+      top: 20px;
+      padding: 8px 15px;
+      background: #e74c3c;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 20px;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background: #f0f0f0;
+    }
+    .status-open {
+      color: green;
+    }
+    .status-in-progress {
+      color: orange;
+    }
+    .status-completed {
+      color: gray;
+    }
+    button {
+      padding: 6px 12px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    #createTaskBtn {
+      margin-bottom: 20px;
+    }
+    /* Modal styles */
+    #taskFormModal {
+      display: none;
+      position: fixed;
+      z-index: 10;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.5);
+    }
+    #taskFormContent {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 600px;
+      box-shadow: 0 0 10px #0003;
+    }
+    #taskFormContent input, #taskFormContent textarea {
+      width: 100%;
+      padding: 8px;
+      margin: 8px 0;
+      box-sizing: border-box;
+    }
+    #taskFormContent label {
+      font-weight: bold;
+    }
+    #closeModal {
+      float: right;
+      cursor: pointer;
+      font-size: 20px;
+      font-weight: bold;
+    }
+    #noTasksMessage {
+      text-align: center;
+      font-style: italic;
+      color: #555;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Welcome, <span id="username">Creator</span>!</h1>
+  <p>Here's your task overview</p>
+  <button id="logoutBtn">Logout</button>
+</header>
+
+<div class="container">
+  <button id="createTaskBtn">+ Create New Task</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Description</th>
+        <th>Accepted Date</th>
+        <th>End Date</th>
+        <th>Min Bid</th>
+        <th>File</th>
+      </tr>
+    </thead>
+    <tbody id="taskList">
+      <!-- Tasks will be dynamically populated here -->
+    </tbody>
+  </table>
+  <p id="noTasksMessage" style="display:none;">No tasks found. Create your first task!</p>
+</div>
+
+<!-- Modal for task form -->
+<div id="taskFormModal">
+  <div id="taskFormContent">
+    <span id="closeModal">&times;</span>
+    <h2>Create New Task</h2>
+    <form id="taskForm" enctype="multipart/form-data">
+      <label for="taskName">Task Name</label>
+      <input type="text" id="taskName" name="taskName" required />
+
+      <label for="taskFile">Upload File</label>
+      <input type="file" id="taskFile" name="taskFile" />
+
+      <label for="taskDescription">Description</label>
+      <textarea id="taskDescription" name="taskDescription" rows="4" required></textarea>
+
+      <label for="acceptedDate">Accepted Date</label>
+      <input type="date" id="acceptedDate" name="acceptedDate" required />
+
+      <label for="endDate">End Date</label>
+      <input type="date" id="endDate" name="endDate" required />
+
+      <label for="minBid">Minimum Bid Amount</label>
+      <input type="number" id="minBid" name="minBid" min="0" required />
+
+      <button type="submit">Create Task</button>
+    </form>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const usernameSpan = document.getElementById('username');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const taskListTbody = document.getElementById('taskList');
+    const noTasksMessage = document.getElementById('noTasksMessage');
+    const taskFormModal = document.getElementById('taskFormModal');
+    const createTaskBtn = document.getElementById('createTaskBtn');
+    const closeModal = document.getElementById('closeModal');
+    const taskForm = document.getElementById('taskForm');
+
+    // Fetch user info and update username display
+    async function loadUser() {
+      try {
+        const res = await fetch('/get-user');
+        if (!res.ok) throw new Error('Failed to fetch user info');
+        const data = await res.json();
+        usernameSpan.textContent = data.name || 'Creator';
+      } catch (error) {
+        console.error('Error fetching user:', error);
+        usernameSpan.textContent = 'Creator';
+      }
+    }
+
+    // Show modal
+    createTaskBtn.addEventListener('click', () => {
+      taskFormModal.style.display = 'block';
+    });
+
+    // Hide modal
+    closeModal.addEventListener('click', () => {
+      taskFormModal.style.display = 'none';
+      taskForm.reset();
+    });
+
+    window.onclick = function(event) {
+      if (event.target === taskFormModal) {
+        taskFormModal.style.display = 'none';
+        taskForm.reset();
+      }
+    };
+
+    // Load and display tasks
+    async function loadTasks() {
+      try {
+        const res = await fetch('/my-tasks');
+        if (!res.ok) throw new Error('Failed to fetch tasks');
+        const tasks = await res.json();
+
+        taskListTbody.innerHTML = '';
+
+        if (!tasks.length) {
+          noTasksMessage.style.display = 'block';
+          return;
+        } else {
+          noTasksMessage.style.display = 'none';
+        }
+
+        tasks.forEach(task => {
+          const fileLink = task.fileName 
+            ? `<a href="/uploads/${task.fileName}" target="_blank">${task.fileName}</a>` 
+            : 'No file';
+
+          const acceptedDate = task.acceptedDate 
+            ? new Date(task.acceptedDate).toLocaleDateString() 
+            : '-';
+
+          // Use dueDate if your backend uses that instead of endDate
+          const endDate = task.dueDate || task.endDate 
+            ? new Date(task.dueDate || task.endDate).toLocaleDateString() 
+            : '-';
+
+          const minBid = (task.minBid !== undefined && task.minBid !== null) ? task.minBid : '-';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${task.name || ''}</td>
+            <td>${task.description || ''}</td>
+            <td>${acceptedDate}</td>
+            <td>${endDate}</td>
+            <td>${minBid}</td>
+            <td>${fileLink}</td>
+          `;
+          taskListTbody.appendChild(tr);
+        });
+      } catch (error) {
+        alert('Error loading tasks: ' + error.message);
+      }
+    }
+
+    // Logout function
+    logoutBtn.addEventListener('click', async () => {
+      try {
+        const res = await fetch('/logout');
+        if (res.ok) {
+          window.location.href = '/login.html'; // redirect to login
+        } else {
+          alert('Logout failed');
+        }
+      } catch {
+        alert('Network error during logout');
+      }
+    });
+
+    // Handle form submission with file upload
+    taskForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Fix FormData keys to match backend expected keys:
+      const formData = new FormData();
+      formData.append('name', taskForm.taskName.value.trim());
+      formData.append('description', taskForm.taskDescription.value.trim());
+      formData.append('acceptedDate', taskForm.acceptedDate.value);
+      formData.append('dueDate', taskForm.endDate.value);  // backend expects dueDate here
+      formData.append('minBid', taskForm.minBid.value);
+
+      if (taskForm.taskFile.files.length > 0) {
+        formData.append('file', taskForm.taskFile.files[0]);
+      }
+
+      try {
+        const res = await fetch('/task', {
+          method: 'POST',
+          body: formData
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || 'Failed to create task');
+          alert(data.message || 'Task created successfully!');
+        } else {
+          const text = await res.text();
+          if (!res.ok) throw new Error(text);
+          alert(text);
+        }
+
+        taskForm.reset();
+        taskFormModal.style.display = 'none';
+        loadTasks();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    });
+
+    // Initial load
+    loadUser();
+    loadTasks();
+  });
+</script>
+
+</body>
+</html>
