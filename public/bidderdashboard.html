@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Bidder Dashboard</title>
   <style>
     body {
@@ -22,6 +22,7 @@
     }
     h3 {
       margin-top: 30px;
+      color: #333;
     }
     .section {
       margin-top: 20px;
@@ -32,24 +33,36 @@
       padding: 15px;
       margin-bottom: 15px;
       box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      line-height: 1.5;
     }
     .bid-input {
       display: flex;
       gap: 10px;
       margin-top: 10px;
+      flex-wrap: wrap;
     }
     input[type="number"] {
-      width: 120px;
-      padding: 5px;
+      width: 140px;
+      padding: 7px 10px;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      transition: border-color 0.3s ease;
+    }
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #007BFF;
     }
     button {
       background: #28a745;
       color: white;
       border: none;
-      padding: 6px 12px;
+      padding: 8px 16px;
       border-radius: 4px;
       cursor: pointer;
       transition: background-color 0.3s ease;
+      font-size: 1rem;
+      flex-shrink: 0;
     }
     button:disabled {
       background: #a9d5a2;
@@ -57,13 +70,30 @@
     }
     .logout {
       background: #dc3545;
+      padding: 8px 16px;
+      font-size: 1rem;
+      border-radius: 5px;
     }
     .no-data {
       font-style: italic;
       color: #666;
+      padding: 10px 0;
     }
     p span.label {
       font-weight: bold;
+      color: #555;
+    }
+    /* Responsive */
+    @media (max-width: 480px) {
+      .bid-input {
+        flex-direction: column;
+      }
+      input[type="number"] {
+        width: 100%;
+      }
+      button {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -90,18 +120,27 @@
 
   <script>
     async function fetchUser() {
-      const res = await fetch('/get-user');
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.name) {
-        document.getElementById('username').textContent = data.name;
+      try {
+        const res = await fetch('/get-user');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.name) {
+          document.getElementById('username').textContent = data.name;
+        }
+      } catch {
+        // ignore errors silently
       }
     }
 
-    // Utility: format date nicely
     function formatDate(dateStr) {
       if (!dateStr) return '-';
-      const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' };
+      const options = {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      };
       return new Date(dateStr).toLocaleString(undefined, options);
     }
 
@@ -125,19 +164,25 @@
           const taskDiv = document.createElement('div');
           taskDiv.className = 'task';
           taskDiv.innerHTML = `
-            <p><span class="label">Task Name:</span> ${task.name}</p>
-            <p><span class="label">Description:</span> ${task.description}</p>
+            <p><span class="label">Task Name:</span> ${task.title || '-'}</p>
+            <p><span class="label">Description:</span> ${task.description || '-'}</p>
             <p><span class="label">Accepted Date:</span> ${formatDate(task.acceptedDate)}</p>
             <p><span class="label">End Date:</span> ${formatDate(task.endDate)}</p>
+            <p><span class="label">Bidding Deadline:</span> ${formatDate(task.biddingDeadline)}</p>
             <p><span class="label">Minimum Bid:</span> ₹${minBid}</p>
             <div class="bid-input">
-              <input type="number" placeholder="Your Bid (≥ ${minBid})" id="bid-${task._id}" min="${minBid}" />
+              <input
+                type="number"
+                placeholder="Your Bid (≥ ₹${minBid})"
+                id="bid-${task._id}"
+                min="${minBid}"
+                step="0.01"
+              />
               <button id="btn-${task._id}" disabled>Place Bid</button>
             </div>
           `;
           taskList.appendChild(taskDiv);
 
-          // Enable button only if bid >= minBid
           const bidInput = taskDiv.querySelector(`#bid-${task._id}`);
           const bidBtn = taskDiv.querySelector(`#btn-${task._id}`);
 
@@ -168,10 +213,16 @@
         }
 
         data.bids.forEach(bid => {
+          const task = bid.taskId || {};
           const bidDiv = document.createElement('div');
           bidDiv.className = 'bid';
           bidDiv.innerHTML = `
-            <p><span class="label">Task:</span> ${bid.taskName || 'N/A'}</p>
+            <p><span class="label">Task Name:</span> ${task.title || '-'}</p>
+            <p><span class="label">Description:</span> ${task.description || '-'}</p>
+            <p><span class="label">Accepted Date:</span> ${formatDate(task.acceptedDate)}</p>
+            <p><span class="label">End Date:</span> ${formatDate(task.endDate)}</p>
+            <p><span class="label">Bidding Deadline:</span> ${formatDate(task.biddingDeadline)}</p>
+            <p><span class="label">Minimum Bid:</span> ₹${task.minBid ?? '-'}</p>
             <p><span class="label">Your Bid:</span> ₹${bid.amount}</p>
             <p><span class="label">Placed On:</span> ${formatDate(bid.createdAt)}</p>
           `;
@@ -183,7 +234,10 @@
     }
 
     async function placeBid(taskId) {
-      const amount = parseFloat(document.getElementById(`bid-${taskId}`).value);
+      const bidInput = document.getElementById(`bid-${taskId}`);
+      const bidBtn = document.getElementById(`btn-${taskId}`);
+      const amount = parseFloat(bidInput.value);
+
       if (isNaN(amount)) {
         alert('Please enter a valid bid amount.');
         return;
@@ -196,12 +250,10 @@
           body: JSON.stringify({ taskId, amount })
         });
         const data = await res.json();
+
         alert(data.message);
         if (res.ok) {
-          loadUserBids(); // refresh bids after placing
-          // Clear input and disable button again
-          const bidInput = document.getElementById(`bid-${taskId}`);
-          const bidBtn = document.getElementById(`btn-${taskId}`);
+          loadUserBids();
           bidInput.value = '';
           bidBtn.disabled = true;
         }
@@ -211,18 +263,21 @@
     }
 
     async function logout() {
-      await fetch('/logout');
+      try {
+        await fetch('/logout');
+      } catch {
+        // ignore errors
+      }
       window.location.href = '/';
     }
 
-    // Auto-refresh every 15 seconds to show new tasks and bids without manual reload
-    const REFRESH_INTERVAL_MS = 15000; // 15 seconds
+    // Auto refresh tasks and bids every 15 seconds
     setInterval(() => {
       loadTasks();
       loadUserBids();
-    }, REFRESH_INTERVAL_MS);
+    }, 15000);
 
-    // Initialize dashboard
+    // Initial load
     fetchUser();
     loadTasks();
     loadUserBids();

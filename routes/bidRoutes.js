@@ -5,7 +5,9 @@ const {
   getBidsForTask,
   acceptBid,
   acceptLowestBid,
-  getLowestBid
+  getLowestBid,
+  getUserBids,
+  getBidsForCreatorTasks
 } = require('../controllers/bidController');
 const authenticate = require('../middleware/authenticate');
 
@@ -21,7 +23,13 @@ router.post('/accept-bid', authenticate, acceptBid);
 // Accept the lowest bid automatically
 router.post('/accept-lowest', authenticate, acceptLowestBid);
 
-// Get current lowest bid
+// Get current lowest bid for a task
 router.get('/lowest-bid/:taskId', authenticate, getLowestBid);
+
+// Get logged-in user's bids with populated task info
+router.get('/my-bids', authenticate, getUserBids); 
+
+router.get('/creator-bids', authenticate, getBidsForCreatorTasks);
+
 
 module.exports = router;

@@ -50,15 +50,6 @@
     th {
       background: #f0f0f0;
     }
-    .status-open {
-      color: green;
-    }
-    .status-in-progress {
-      color: orange;
-    }
-    .status-completed {
-      color: gray;
-    }
     button {
       padding: 6px 12px;
       border: none;
@@ -73,7 +64,6 @@
     #createTaskBtn {
       margin-bottom: 20px;
     }
-    /* Modal styles */
     #taskFormModal {
       display: none;
       position: fixed;
@@ -114,6 +104,18 @@
       color: #555;
       margin-top: 20px;
     }
+    #bids-container {
+      margin-top: 30px;
+      border-top: 2px solid #ccc;
+      padding-top: 20px;
+    }
+    .bid-box {
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background: #f9f9f9;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
@@ -138,14 +140,15 @@
         <th>File</th>
       </tr>
     </thead>
-    <tbody id="taskList">
-      <!-- Tasks will be dynamically populated here -->
-    </tbody>
+    <tbody id="taskList"></tbody>
   </table>
   <p id="noTasksMessage" style="display:none;">No tasks found. Create your first task!</p>
+
+  <h2>View Bids on My Tasks</h2>
+  <div id="bids-container"></div>
 </div>
 
-<!-- Modal for task form -->
+<!-- Modal -->
 <div id="taskFormModal">
   <div id="taskFormContent">
     <span id="closeModal">&times;</span>
@@ -166,6 +169,9 @@
       <label for="endDate">End Date</label>
       <input type="date" id="endDate" name="endDate" required />
 
+      <label for="biddingDeadline">Bidding Deadline</label>
+      <input type="date" id="biddingDeadline" name="biddingDeadline" required />
+
       <label for="minBid">Minimum Bid Amount</label>
       <input type="number" id="minBid" name="minBid" min="0" required />
 
@@ -184,144 +190,172 @@
     const createTaskBtn = document.getElementById('createTaskBtn');
     const closeModal = document.getElementById('closeModal');
     const taskForm = document.getElementById('taskForm');
+    const bidsContainer = document.getElementById('bids-container');
 
-    // Fetch user info and update username display
+    // Escape HTML special characters to prevent XSS
+    function escapeHTML(str) {
+      if (!str) return '';
+      return str.replace(/[&<>"']/g, function (match) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#39;'
+        }[match];
+      });
+    }
+
     async function loadUser() {
       try {
         const res = await fetch('/get-user');
-        if (!res.ok) throw new Error('Failed to fetch user info');
         const data = await res.json();
-        usernameSpan.textContent = data.name || 'Creator';
-      } catch (error) {
-        console.error('Error fetching user:', error);
+        usernameSpan.textContent = data.name ? escapeHTML(data.name) : 'Creator';
+      } catch {
         usernameSpan.textContent = 'Creator';
       }
     }
 
-    // Show modal
-    createTaskBtn.addEventListener('click', () => {
-      taskFormModal.style.display = 'block';
-    });
-
-    // Hide modal
-    closeModal.addEventListener('click', () => {
+    createTaskBtn.onclick = () => taskFormModal.style.display = 'block';
+    closeModal.onclick = () => {
       taskFormModal.style.display = 'none';
       taskForm.reset();
-    });
-
-    window.onclick = function(event) {
-      if (event.target === taskFormModal) {
+    };
+    window.onclick = (e) => {
+      if (e.target === taskFormModal) {
         taskFormModal.style.display = 'none';
         taskForm.reset();
       }
     };
 
-    // Load and display tasks
     async function loadTasks() {
       try {
         const res = await fetch('/my-tasks');
-        if (!res.ok) throw new Error('Failed to fetch tasks');
         const tasks = await res.json();
 
         taskListTbody.innerHTML = '';
-
         if (!tasks.length) {
           noTasksMessage.style.display = 'block';
           return;
-        } else {
-          noTasksMessage.style.display = 'none';
         }
+        noTasksMessage.style.display = 'none';
 
         tasks.forEach(task => {
-          const fileLink = task.fileName 
-            ? `<a href="/uploads/${task.fileName}" target="_blank">${task.fileName}</a>` 
-            : 'No file';
+          const acceptedDate = task.acceptedDate ? new Date(task.acceptedDate).toLocaleDateString() : '-';
+          const endDate = (task.dueDate || task.endDate) ? new Date(task.dueDate || task.endDate).toLocaleDateString() : '-';
 
-          const acceptedDate = task.acceptedDate 
-            ? new Date(task.acceptedDate).toLocaleDateString() 
-            : '-';
-
-          // Use dueDate if your backend uses that instead of endDate
-          const endDate = task.dueDate || task.endDate 
-            ? new Date(task.dueDate || task.endDate).toLocaleDateString() 
-            : '-';
-
-          const minBid = (task.minBid !== undefined && task.minBid !== null) ? task.minBid : '-';
+          let fileLink = 'No file';
+          if (task.fileName) {
+            const safeFileName = escapeHTML(task.fileName);
+            fileLink = `<a href="/uploads/${encodeURIComponent(task.fileName)}" target="_blank" rel="noopener noreferrer">${safeFileName}</a>`;
+          }
 
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${task.name || ''}</td>
-            <td>${task.description || ''}</td>
+            <td>${escapeHTML(task.title)}</td>
+            <td>${escapeHTML(task.description)}</td>
             <td>${acceptedDate}</td>
             <td>${endDate}</td>
-            <td>${minBid}</td>
+            <td>${task.minBid ?? '-'}</td>
             <td>${fileLink}</td>
           `;
           taskListTbody.appendChild(tr);
         });
-      } catch (error) {
-        alert('Error loading tasks: ' + error.message);
+      } catch (err) {
+        alert('Error loading tasks');
       }
     }
 
-    // Logout function
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        const res = await fetch('/logout');
-        if (res.ok) {
-          window.location.href = '/login.html'; // redirect to login
-        } else {
-          alert('Logout failed');
-        }
-      } catch {
-        alert('Network error during logout');
-      }
-    });
-
-    // Handle form submission with file upload
     taskForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // Fix FormData keys to match backend expected keys:
-      const formData = new FormData();
-      formData.append('name', taskForm.taskName.value.trim());
-      formData.append('description', taskForm.taskDescription.value.trim());
-      formData.append('acceptedDate', taskForm.acceptedDate.value);
-      formData.append('dueDate', taskForm.endDate.value);  // backend expects dueDate here
-      formData.append('minBid', taskForm.minBid.value);
-
-      if (taskForm.taskFile.files.length > 0) {
-        formData.append('file', taskForm.taskFile.files[0]);
-      }
-
+      const formData = new FormData(taskForm);
       try {
         const res = await fetch('/task', {
           method: 'POST',
           body: formData
         });
-
-        const contentType = res.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || 'Failed to create task');
-          alert(data.message || 'Task created successfully!');
-        } else {
-          const text = await res.text();
-          if (!res.ok) throw new Error(text);
-          alert(text);
-        }
-
-        taskForm.reset();
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message);
+        alert('Task created successfully!');
         taskFormModal.style.display = 'none';
+        taskForm.reset();
         loadTasks();
+        fetchCreatorBids();
       } catch (err) {
         alert('Error: ' + err.message);
       }
     });
 
-    // Initial load
+    logoutBtn.onclick = async () => {
+      const res = await fetch('/logout');
+      if (res.ok) location.href = '/login.html';
+      else alert('Logout failed');
+    };
+
+    async function fetchCreatorBids() {
+      try {
+        const res = await fetch('/api/bid/creator-bids');
+        const data = await res.json();
+        bidsContainer.innerHTML = '';
+
+        if (!data.bids?.length) {
+          bidsContainer.innerHTML = '<p>No bids found on your tasks.</p>';
+          return;
+        }
+
+        data.bids.forEach(({ _id, amount, createdAt, userId, taskId }) => {
+          const bidBox = document.createElement('div');
+          bidBox.className = 'bid-box';
+
+          // Escape user data
+          const safeTaskTitle = escapeHTML(taskId?.title || 'Untitled');
+          const safeBidderName = escapeHTML(userId?.name || 'Unknown');
+          const safeTaskId = taskId?._id || '';
+          const safeBidId = _id || '';
+
+          bidBox.innerHTML = `
+            <p><strong>Task:</strong> ${safeTaskTitle}</p>
+            <p><strong>Bidder:</strong> ${safeBidderName}</p>
+            <p><strong>Amount:</strong> ₹${amount}</p>
+            <p><strong>Placed On:</strong> ${new Date(createdAt).toLocaleString()}</p>
+            <button class="select-bid-btn" data-task-id="${safeTaskId}" data-bid-id="${safeBidId}" data-bidder-name="${safeBidderName}">Select</button>
+          `;
+          bidsContainer.appendChild(bidBox);
+        });
+      } catch (error) {
+        bidsContainer.innerHTML = '<p>Error loading bids.</p>';
+      }
+    }
+
+    // Event delegation for selecting bids
+    bidsContainer.addEventListener('click', async (e) => {
+      if (e.target && e.target.classList.contains('select-bid-btn')) {
+        const btn = e.target;
+        const taskId = btn.getAttribute('data-task-id');
+        const bidId = btn.getAttribute('data-bid-id');
+        const bidderName = btn.getAttribute('data-bidder-name');
+
+        try {
+          const res = await fetch('/api/bid/accept-bid', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ taskId, bidId })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message);
+          alert(`✅ Task assigned to ${bidderName} on ${new Date(data.acceptedDate).toLocaleString()}`);
+          fetchCreatorBids();
+          loadTasks();
+        } catch (err) {
+          alert('Error: ' + err.message);
+        }
+      }
+    });
+
     loadUser();
     loadTasks();
+    fetchCreatorBids();
   });
 </script>
 

@@ -16,11 +16,11 @@ const taskSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  acceptedDate: {
+  acceptedDate: {  // This can be kept if you want a creation or start date
     type: Date,
-    default: null
+    required: true
   },
-  dueDate: {
+  endDate: {
     type: Date,
     required: true
   },
@@ -45,6 +45,10 @@ const taskSchema = new mongoose.Schema({
   assignedBidId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Bid',
+    default: null
+  },
+  taskAcceptedDate: {      // <-- NEW field for date when task is assigned
+    type: Date,
     default: null
   },
   createdAt: {

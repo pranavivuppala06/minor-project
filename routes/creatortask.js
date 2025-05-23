@@ -1,99 +1,90 @@
-// creatortask.js
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
 const Task = require('../models/task');
-const Bid = require('../models/bid');
 
-// Middleware to check if user is a creator
-function isCreator(req, res, next) {
-  if (req.session.userRole === 'creator') {
-    next();
-  } else {
-    res.status(403).json({ message: 'Forbidden: Not a creator' });
-  }
-}
+// Directory to store uploaded files
+const uploadDir = path.join(__dirname, '..', 'uploads');
 
-// Get all tasks created by logged-in creator
-router.get('/my-tasks', isCreator, async (req, res) => {
-  try {
-    const tasks = await Task.find({ userId: req.session.userId }).lean();
-
-    // Optionally add number of bids per task
-    for (let task of tasks) {
-      task.bids = await Bid.countDocuments({ taskId: task._id });
-    }
-
-    res.json(tasks);
-  } catch (err) {
-    console.error('Error fetching tasks:', err);
-    res.status(500).json({ message: 'Server error fetching tasks' });
+// Multer storage config
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadDir),
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
   }
 });
 
-// Create a new task
-router.post('/create-task', isCreator, async (req, res) => {
-  try {
-    const { description, acceptedDate, dueDate, biddingDeadline, filePath } = req.body;
+const upload = multer({ storage });
 
+router.post('/create-task', upload.single('file'), async (req, res) => {
+  try {
+    // Check if user is logged in
+    if (!req.session || !req.session.userId) {
+      return res.status(401).json({ message: 'Unauthorized. Please log in.' });
+    }
+
+    // Destructure and trim inputs
+    let { title, description, acceptedDate, endDate, biddingDeadline, minBid } = req.body;
+
+    title = title?.trim();
+    description = description?.trim();
+    acceptedDate = acceptedDate?.trim();
+    endDate = endDate?.trim();
+    biddingDeadline = biddingDeadline?.trim();
+    minBid = minBid ? minBid.trim() : '0';
+
+    // Validate required fields
+    if (!title || !description || !acceptedDate || !endDate || !biddingDeadline) {
+      return res.status(400).json({ message: 'Title, description, accepted date, end date, and bidding deadline are required.' });
+    }
+
+    // Parse dates and minBid
+    const acceptedDateParsed = new Date(acceptedDate);
+    const endDateParsed = new Date(endDate);
+    const biddingDeadlineParsed = new Date(biddingDeadline);
+    const minBidParsed = Number(minBid);
+
+    // Validate dates and minBid
+    if (isNaN(acceptedDateParsed.getTime())) {
+      return res.status(400).json({ message: 'Invalid accepted date format.' });
+    }
+    if (isNaN(endDateParsed.getTime())) {
+      return res.status(400).json({ message: 'Invalid end date format.' });
+    }
+    if (isNaN(biddingDeadlineParsed.getTime())) {
+      return res.status(400).json({ message: 'Invalid bidding deadline format.' });
+    }
+    if (isNaN(minBidParsed) || minBidParsed < 0) {
+      return res.status(400).json({ message: 'Minimum bid must be a positive number or zero.' });
+    }
+
+    // Prepare file path if file uploaded
+    const filePath = req.file
+      ? path.relative(path.join(__dirname, '..'), req.file.path).replace(/\\/g, '/')
+      : null;
+
+    // Create new Task document
     const newTask = new Task({
       userId: req.session.userId,
+      title,
       description,
-      acceptedDate,
-      dueDate,
-      biddingDeadline,
+      acceptedDate: acceptedDateParsed,
+      endDate: endDateParsed,
+      biddingDeadline: biddingDeadlineParsed,
+      minBid: minBidParsed,
       filePath,
       status: 'open'
     });
 
     await newTask.save();
+
+    // Respond with success
     res.status(201).json({ message: 'Task created successfully', task: newTask });
-  } catch (err) {
-    console.error('Error creating task:', err);
-    res.status(500).json({ message: 'Server error creating task' });
-  }
-});
-
-// View bids for a specific task
-router.get('/task/:taskId/bids', isCreator, async (req, res) => {
-  try {
-    const task = await Task.findById(req.params.taskId);
-    if (!task) return res.status(404).json({ message: 'Task not found' });
-    if (task.userId.toString() !== req.session.userId) {
-      return res.status(403).json({ message: 'Not authorized to view bids for this task' });
-    }
-
-    const bids = await Bid.find({ taskId: req.params.taskId }).sort({ amount: 1 }).lean();
-    res.json(bids);
-  } catch (err) {
-    console.error('Error fetching bids:', err);
-    res.status(500).json({ message: 'Server error fetching bids' });
-  }
-});
-
-// Accept a bid for a task
-router.post('/task/:taskId/accept-bid', isCreator, async (req, res) => {
-  const { bidId } = req.body;
-  try {
-    const task = await Task.findById(req.params.taskId);
-    if (!task) return res.status(404).json({ message: 'Task not found' });
-    if (task.userId.toString() !== req.session.userId) {
-      return res.status(403).json({ message: 'Not authorized to accept bids for this task' });
-    }
-    if (task.status !== 'open') {
-      return res.status(400).json({ message: 'Task is not open for accepting bids' });
-    }
-
-    const bid = await Bid.findById(bidId);
-    if (!bid) return res.status(404).json({ message: 'Bid not found' });
-
-    task.status = 'in-progress';
-    task.bidderId = bid.userId;
-    await task.save();
-
-    res.json({ message: 'Bid accepted', winner: bid });
-  } catch (err) {
-    console.error('Error accepting bid:', err);
-    res.status(500).json({ message: 'Server error accepting bid' });
+  } catch (error) {
+    console.error('Error creating task:', error);
+    res.status(500).json({ message: 'Server error creating task.' });
   }
 });
 

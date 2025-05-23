@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const User = require('../models/user');  // Your user model path
-const bcrypt = require('bcryptjs');
+const User = require('../models/user');
 
 // Registration route
 router.post('/register', async (req, res) => {
@@ -15,6 +14,7 @@ router.post('/register', async (req, res) => {
     const existingUser = await User.findOne({ email });
     if (existingUser) return res.status(400).json({ message: 'Email already registered' });
 
+    // Save user with plain password
     const user = new User({ name, email, password, role });
     await user.save();
 
@@ -34,12 +34,16 @@ router.post('/login', async (req, res) => {
   }
 
   try {
+    // Find user by email and role
     const user = await User.findOne({ email, role });
     if (!user) return res.status(401).json({ message: 'Invalid email, password, or role' });
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid email, password, or role' });
+    // Plain text password comparison
+    if (password !== user.password) {
+      return res.status(401).json({ message: 'Invalid email, password, or role' });
+    }
 
+    // Set session user data
     req.session.userId = user._id;
     req.session.role = user.role;
 
