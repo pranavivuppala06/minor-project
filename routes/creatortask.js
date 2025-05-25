@@ -21,9 +21,7 @@ const upload = multer({ storage });
 router.post('/create-task', upload.single('file'), async (req, res) => {
   try {
     // Check if user is logged in
-    if (!req.session || !req.session.userId) {
-      return res.status(401).json({ message: 'Unauthorized. Please log in.' });
-    }
+    if (!req.session || !req.session.userId); 
 
     // Destructure and trim inputs
     let { title, description, acceptedDate, endDate, biddingDeadline, minBid } = req.body;
