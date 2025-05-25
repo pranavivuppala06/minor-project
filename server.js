@@ -1,4 +1,6 @@
 const express = require('express'); 
+const openModule = require('open');
+const open = openModule.default || openModule;
 const session = require('express-session');
 const mongoose = require('mongoose');
 const multer = require('multer');
@@ -342,4 +344,5 @@ app.use('/uploads', express.static(uploadDir));
 // Start Server
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
+  open(`http://localhost:${PORT}`);
 });
